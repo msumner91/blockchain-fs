@@ -16,19 +16,18 @@ module Core =
   let lastBlock bc = Seq.tryHead bc.chain
 
   let addBlock bc h prf =
-    let block = [ { index = 0
-                    ts = System.DateTime.Now
-                    transactions = bc.currentTransactions
-                    proof = prf
-                    previousHash = Option.defaultValue (hash (lastBlock bc)) h } ]
-          
-    { bc with chain = (block @ bc.chain); currentTransactions = [] }    
+    let block = { index = 0
+                  ts = System.DateTime.Now
+                  transactions = bc.currentTransactions
+                  proof = prf
+                  previousHash = Option.defaultValue (hash (lastBlock bc)) h }
+
+    { bc with chain = block::bc.chain; currentTransactions = [] }    
 
   let addTransaction bc tx = 
-    let newTx = [{ sender = tx.sender; recipient = tx.recipient; amount = tx.amount }]
-    let lastBlockIdx = Option.map (fun x -> x.index) (lastBlock bc) |> Option.defaultValue 0
-
-    (lastBlockIdx + 1, { bc with currentTransactions = newTx @ bc.currentTransactions })
+    let newTx = { sender = tx.sender; recipient = tx.recipient; amount = tx.amount }
+    
+    { bc with currentTransactions = newTx::bc.currentTransactions }
 
   let isValidProof lastProof proof =
     let guessHash = (hash (lastProof + proof))

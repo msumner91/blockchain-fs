@@ -16,8 +16,6 @@ module Resource =
           [  path "/hello" >=> OK "Hello POST" ] 
       ]
 
-//startWebServer defaultConfig (mapJson (fun (a:Foo) -> { bar = a.foo })) *)
-
 [<EntryPoint>]
 let main _ =
   startWebServer defaultConfig Resource.app
