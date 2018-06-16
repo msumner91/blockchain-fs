@@ -1,22 +1,60 @@
 ﻿open Suave
 
+module Node =
+  open Data.Core
+  open Ops.Core
+  open System
+
+  let nodeUuid = Guid.NewGuid.ToString()
+
+  let genesisBlock = { index = 0; ts = System.DateTime.Now; transactions = []; proof = 100; previousHash = "" }
+  
+  let state = ref { chain = [genesisBlock]; currentTransactions = [] }
+
+  let addTransactionImpl tx =
+    state := addTransaction !state tx
+    !state
+  
+  let addBlockImpl bl h prf =
+    state := addBlock bl h prf
+    !state
+
+  (* let mine =
+    let lastBlock = Option.defaultValue genesisBlock (lastBlock !state)
+    let lastProof = lastBlock.proof
+    let proof = proofOfWork lastProof 0
+    let hash = Some(hash lastBlock)
+
+    addTransactionImpl { sender = "0"; recipient = nodeUuid; amount = 1 } |> ignore
+    addBlockImpl !state hash proof *)
+    
 module Resource = 
+  open Chiron
   open Suave.Filters
   open Suave.Operators
   open Suave.Successful
-  open Ops.Core
-  open Data.Core
-  open Chiron
 
+  let parseJson req =
+    req.rawForm
+    |> System.Text.Encoding.UTF8.GetString
+    |> Json.parse
+
+  let prettyPrint = Json.formatWith JsonFormattingOptions.Pretty
+  
   let app =
     choose
       [ GET >=> choose
-          [ path "/chain" >=> OK (!Ops.Core.state |> Json.serialize |> Json.formatWith JsonFormattingOptions.Pretty) ]
+          [ path "/chain" >=> OK (!Node.state |> Json.serialize |> prettyPrint) ]
+            // path "/mine" >=> OK (Node.mine |> Json.serialize |> prettyPrint) ]
         POST >=> choose
-          [  path "/hello" >=> OK "Hello POST" ] 
+          [ path "/transactions/new" >=> request (parseJson >> Json.deserialize >> Node.addTransactionImpl >> Json.serialize >> prettyPrint >> CREATED) ]
       ]
 
 [<EntryPoint>]
-let main _ =
-  startWebServer defaultConfig Resource.app
-  0
+let main argv =
+  if(argv.Length <> 2) then failwith "Invalid arguments"
+  else
+    let host = argv.[0]
+    let port = argv.[1] |> int
+    startWebServer {defaultConfig with bindings = [HttpBinding.createSimple HTTP host port]} Resource.app
+    0

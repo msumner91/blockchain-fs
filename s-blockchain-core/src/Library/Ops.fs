@@ -3,10 +3,6 @@ namespace Ops
 module Core =
   open Data.Core
   open System.Security.Cryptography
-
-  let genesisBlock = { index = 0; ts = System.DateTime.Now; transactions = []; proof = 100; previousHash = "" }
-
-  let state = ref { chain = [genesisBlock]; currentTransactions = [] } // allocate on heap
  
   let hash x =
     System.Text.Encoding.ASCII.GetBytes(x.ToString())
@@ -31,7 +27,7 @@ module Core =
 
   let isValidProof lastProof proof =
     let guessHash = (hash (lastProof + proof))
-    guessHash.[..4] = "0000"
+    guessHash.[..1] = "0"
 
   let rec proofOfWork lastProof proof = 
     if (isValidProof lastProof proof) then proof
