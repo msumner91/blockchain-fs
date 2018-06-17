@@ -5,7 +5,7 @@ module Node =
   open Ops.Core
   open System
 
-  let nodeUuid = Guid.NewGuid.ToString()
+  let nodeUuid = Guid.NewGuid().ToString()
 
   let genesisBlock = { index = 0; ts = System.DateTime.Now; transactions = []; proof = 100; previousHash = "" }
   
@@ -19,14 +19,14 @@ module Node =
     state := addBlock bl h prf
     !state
 
-  (* let mine =
+  let mine () =
     let lastBlock = Option.defaultValue genesisBlock (lastBlock !state)
     let lastProof = lastBlock.proof
     let proof = proofOfWork lastProof 0
-    let hash = Some(hash lastBlock)
+    let hash = hash lastBlock
 
     addTransactionImpl { sender = "0"; recipient = nodeUuid; amount = 1 } |> ignore
-    addBlockImpl !state hash proof *)
+    addBlockImpl !state hash proof |> ignore
     
 module Resource = 
   open Chiron
@@ -44,8 +44,8 @@ module Resource =
   let app =
     choose
       [ GET >=> choose
-          [ path "/chain" >=> OK (!Node.state |> Json.serialize |> prettyPrint) ]
-            // path "/mine" >=> OK (Node.mine |> Json.serialize |> prettyPrint) ]
+          [ path "/chain" >=> warbler (fun _ -> OK (!Node.state |> Json.serialize |> prettyPrint))
+            path "/mine" >=> warbler (fun _ -> OK ((Node.mine ()); "Mined")) ] 
         POST >=> choose
           [ path "/transactions/new" >=> request (parseJson >> Json.deserialize >> Node.addTransactionImpl >> Json.serialize >> prettyPrint >> CREATED) ]
       ]
