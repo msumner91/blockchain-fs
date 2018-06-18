@@ -1,4 +1,4 @@
-namespace Data
+namespace DataTypes
 
 module Core =
   open Chiron
@@ -35,14 +35,35 @@ module Core =
                   return { index = i; ts = ts'; transactions = tx; proof = p; previousHash = pH }
                 }
 
-  type Blockchain = { chain: Block list; currentTransactions: TX list }
+  type Node = { id: string }
+              static member ToJson(x: Node) = json {
+                do! Json.write "id" x.id
+              }
+
+              static member FromJson(_: Node) = json {
+                let! id' = Json.read "id"
+                return { id = id' }
+              }
+
+  type Blockchain = { chain: Block list; currentTransactions: TX list; nodes: Node Set }
                     static member ToJson(x: Blockchain) = json {
                       do! Json.write "chain" x.chain
                       do! Json.write "currentTransactions" x.currentTransactions
+                      do! Json.write "nodes" x.nodes
                     }
 
                     static member FromJson(_: Blockchain) = json {
                       let! c = Json.read "chain"
                       let! tx = Json.read "currentTransactions"
-                      return { chain = c; currentTransactions = tx }
+                      let! n = Json.read "nodes"
+                      return { chain = c; currentTransactions = tx; nodes = n }
                     }
+
+  type Msg = 
+    | AddTx of TX
+    | AddNode of Node Set
+    | Mine
+    | Resolve
+    | GetState of AsyncReplyChannel<Blockchain>
+
+  let genesisBlock = { index = 0; ts = System.DateTime.Now; transactions = []; proof = 100; previousHash = "" }

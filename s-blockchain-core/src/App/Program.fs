@@ -1,34 +1,24 @@
 ﻿open Suave
+open DataTypes.Core
 
 module Node =
-  open Data.Core
   open Ops.Core
-  open System
+  let nodeUuid = System.Guid.NewGuid().ToString()
 
-  let nodeUuid = Guid.NewGuid().ToString()
+  let initialState = { chain = [genesisBlock]; currentTransactions = []; nodes = Set.empty }
 
-  let genesisBlock = { index = 0; ts = System.DateTime.Now; transactions = []; proof = 100; previousHash = "" }
-  
-  let state = ref { chain = [genesisBlock]; currentTransactions = [] }
-
-  let addTransactionImpl tx =
-    state := addTransaction !state tx
-    !state
-  
-  let addBlockImpl bl h prf =
-    state := addBlock bl h prf
-    !state
-
-  let mine () =
-    let lastBlock = Option.defaultValue genesisBlock (lastBlock !state)
-    let lastProof = lastBlock.proof
-    let proof = proofOfWork lastProof 0
-    let hash = hash lastBlock
-
-    addTransactionImpl { sender = "0"; recipient = nodeUuid; amount = 1 } |> ignore
-    addBlockImpl !state hash proof |> ignore
+  let agent = 
+    MailboxProcessor.Start(fun inbox -> 
+      let rec messageLoop oldState = async {
+        let! msg = inbox.Receive()
+        let newState = updateState oldState msg nodeUuid
+        return! messageLoop newState
+      } 
     
-module Resource = 
+      messageLoop initialState
+    )
+
+module Resource =
   open Chiron
   open Suave.Filters
   open Suave.Operators
@@ -44,15 +34,18 @@ module Resource =
   let app =
     choose
       [ GET >=> choose
-          [ path "/chain" >=> warbler (fun _ -> OK (!Node.state |> Json.serialize |> prettyPrint))
-            path "/mine" >=> warbler (fun _ -> OK ((Node.mine ()); "Mined")) ] 
+          [ path "/chain" >=> warbler (fun _ -> OK (Node.agent.PostAndReply(fun reply -> GetState(reply)) |> Json.serialize |> prettyPrint))
+            path "/mine" >=> warbler (fun _ -> OK (Node.agent.Post Mine |> (fun _ -> "Mining")))
+            path "/nodes/resolve" >=> warbler (fun _ -> OK(Node.agent.Post Resolve |> (fun _ -> "Conflicts resolved")))] 
         POST >=> choose
-          [ path "/transactions/new" >=> request (parseJson >> Json.deserialize >> Node.addTransactionImpl >> Json.serialize >> prettyPrint >> CREATED) ]
+          [ path "/transactions/new" >=> request (parseJson >> Json.deserialize >> AddTx >> Node.agent.Post >> (fun _ -> "Added transaction") >> CREATED) 
+            path "/nodes/register" >=> request (parseJson >> Json.deserialize >> AddNode >> Node.agent.Post >> (fun _ -> "Registered node") >> CREATED)]
       ]
 
 [<EntryPoint>]
 let main argv =
-  if(argv.Length <> 2) then failwith "Invalid arguments"
+  if(argv.Length <> 2) then 
+    failwith "Invalid arguments"
   else
     let host = argv.[0]
     let port = argv.[1] |> int
