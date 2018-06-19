@@ -42,12 +42,12 @@ module Core =
       proofOfWork lastProof (proof + 1)
 
   let rec isValidChain chain =
-    let validateHash (lb: Block)(bl: Block) = 
-      let lastBlockHash = hash lb
-      printfn "last block: %s" (lb.ToString())
-      printfn "last block hash: %s" lastBlockHash
-      printfn "previous hash: %s" bl.previousHash
-      bl.previousHash = lastBlockHash
+    let validateHash lb bl = 
+      printfn "the curr block is: %A" bl
+      printfn "the last block was: %A" lb 
+      printfn "the current block hash is: %s" (hash bl)
+      printfn "last block hash using hash: %s" (hash lb)
+      bl.previousHash = hash lb
     let validateProof lb bl = isValidProof lb.proof bl.proof
 
     match chain with 
@@ -63,6 +63,8 @@ module Core =
     let lastProof = lastBlock.proof
     let proof = proofOfWork lastProof 0
     let hash = hash lastBlock
+
+    printfn "Hash is: %s" hash
     (hash, proof)
 
   let resolveConflicts s =
@@ -73,8 +75,7 @@ module Core =
             let response = Http.RequestString(reqStr)
             let chain' = response |> Json.parse |> Json.deserialize |> (fun x -> x.chain)
             let length' = chain'.Length
-            printfn "chain' length: %i" length'
-            printfn "chain length: %i" s'.chain.Length
+
             if(length' > s'.chain.Length && isValidChain chain') then
               printfn "Replacing chain with chain'..."
               resolve (replaceChain s' chain') t

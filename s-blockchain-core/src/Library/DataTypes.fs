@@ -35,6 +35,8 @@ module Core =
                   return { index = i; ts = ts'; transactions = tx; proof = p; previousHash = pH }
                 }
 
+                override x.ToString() = sprintf "%s %s %s %s" (x.index.ToString()) (x.transactions.ToString()) (x.proof.ToString()) x.previousHash
+
   type Node = { id: string }
               static member ToJson(x: Node) = json {
                 do! Json.write "id" x.id
